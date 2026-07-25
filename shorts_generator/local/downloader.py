@@ -111,6 +111,8 @@ def download_youtube_local(video_url: str, fmt: str = "720", out_dir: Optional[s
             return cached
 
     print(f"[download/local] {video_url} @ {fmt}p → {out_dir}/", flush=True)
+    import shutil
+    ffmpeg_bin = shutil.which("ffmpeg") or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "venv", "Scripts", "ffmpeg.exe")
     ydl_opts = {
         "format": _format_for(fmt),
         "outtmpl": os.path.join(out_dir, "source_%(id)s.%(ext)s"),
@@ -119,6 +121,8 @@ def download_youtube_local(video_url: str, fmt: str = "720", out_dir: Optional[s
         "no_warnings": True,
         "noprogress": True,
     }
+    if ffmpeg_bin and os.path.exists(ffmpeg_bin):
+        ydl_opts["ffmpeg_location"] = os.path.dirname(ffmpeg_bin)
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(video_url, download=True)

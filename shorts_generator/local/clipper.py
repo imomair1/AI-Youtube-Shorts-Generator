@@ -22,10 +22,15 @@ def _ratio(aspect_ratio: str) -> float:
         return 9.0 / 16.0
 
 
+def _get_ffmpeg() -> str:
+    import shutil
+    return shutil.which("ffmpeg") or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "venv", "Scripts", "ffmpeg.exe") or "ffmpeg"
+
+
 def _cut_subclip(source_path: str, start: float, end: float, out_path: str) -> str:
     """ffmpeg -ss start -to end → re-encoded mp4 with audio."""
     cmd = [
-        "ffmpeg", "-y", "-loglevel", "error",
+        _get_ffmpeg(), "-y", "-loglevel", "error",
         "-i", source_path,
         "-ss", f"{start:.3f}",
         "-to", f"{end:.3f}",
@@ -66,7 +71,12 @@ def _reframe_vertical(in_path: str, out_path: str, aspect_ratio: str) -> str:
     crop_w = max(2, crop_w - (crop_w % 2))
     crop_h = max(2, crop_h - (crop_h % 2))
 
-    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+    face_cascade = None
+    if hasattr(cv2, "CascadeClassifier") and hasattr(cv2, "data"):
+        try:
+            face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        except Exception:
+            face_cascade = None
 
     silent_path = out_path + ".silent.mp4"
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -79,8 +89,10 @@ def _reframe_vertical(in_path: str, out_path: str, aspect_ratio: str) -> str:
         if not ret:
             break
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
+        faces = []
+        if face_cascade is not None and not face_cascade.empty():
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40))
         if len(faces) > 0:
             # Pick the largest face — usually the speaker.
             x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
@@ -105,10 +117,12 @@ def _reframe_vertical(in_path: str, out_path: str, aspect_ratio: str) -> str:
 
     cap.release()
     writer.release()
+    del cap
+    del writer
 
     # Mux audio from the cut clip back onto the silent reframed video.
     cmd = [
-        "ffmpeg", "-y", "-loglevel", "error",
+        _get_ffmpeg(), "-y", "-loglevel", "error",
         "-i", silent_path,
         "-i", in_path,
         "-c:v", "copy",
@@ -118,7 +132,10 @@ def _reframe_vertical(in_path: str, out_path: str, aspect_ratio: str) -> str:
         out_path,
     ]
     subprocess.run(cmd, check=True)
-    os.remove(silent_path)
+    try:
+        os.remove(silent_path)
+    except OSError:
+        pass
     return out_path
 
 
@@ -136,7 +153,10 @@ def crop_clip_local(
         _reframe_vertical(cut_path, out_path, aspect_ratio)
     finally:
         if os.path.exists(cut_path):
-            os.remove(cut_path)
+            try:
+                os.remove(cut_path)
+            except OSError:
+                pass
     return out_path
 
 

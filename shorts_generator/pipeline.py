@@ -1,10 +1,10 @@
 """End-to-end orchestrator.
 
 Two modes:
-  * mode="api"   (default) — MuAPI does download / transcribe / LLM / autocrop.
-                              Fast, no local deps, pay-per-call.
-  * mode="local"            — yt-dlp + faster-whisper + OpenAI or Gemini + ffmpeg/opencv.
-                              Self-hosted, LLM_PROVIDER selects OpenAI or Gemini.
+  * mode="local"  (default) — yt-dlp + faster-whisper + Ollama (or OpenAI/Gemini) + ffmpeg/opencv.
+                               Self-hosted, LLM_PROVIDER selects the LLM backend (default: Ollama).
+  * mode="api"              — MuAPI does download / transcribe / LLM / autocrop.
+                               Fast, no local deps, pay-per-call.
 """
 from typing import Dict, List, Optional
 
@@ -93,7 +93,7 @@ def generate_shorts(
     aspect_ratio: str = "9:16",
     download_format: str = "720",
     language: Optional[str] = None,
-    mode: str = "api",
+    mode: str = "local",
 ) -> Dict:
     """Run the full pipeline and return a structured result.
 
