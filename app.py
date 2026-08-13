@@ -230,12 +230,13 @@ if st.session_state.video_info:
             if d.get("status") == "downloading":
                 pct = int(d.get("percent", 0))
                 progress_bar.progress(min(100, max(0, pct)))
+                label = d.get("stream_label", "Downloading")
                 status_text.markdown(
-                    f"**Downloading... {pct}%** ({d.get('speed_str', '')} • ETA: {d.get('eta_str', '')})"
+                    f"**{label}... {pct}%** ({d.get('speed_str', '')} • ETA: {d.get('eta_str', '')})"
                 )
             elif d.get("status") == "processing":
                 progress_bar.progress(100)
-                status_text.markdown("⏳ **Processing & merging streams with FFmpeg...**")
+                status_text.markdown("⏳ **Processing & merging video/audio streams with FFmpeg...**")
 
         with st.spinner("Downloading video..."):
             try:

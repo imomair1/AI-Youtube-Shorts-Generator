@@ -1,7 +1,7 @@
 """YouTube Video Downloader Engine powered by yt-dlp & FFmpeg.
 
 Extracts video metadata and formats, and downloads videos in Original/Best quality
-or selected resolutions (4K, 1080p, 720p, 480p, 360p, MP3/M4A Audio).
+or selected resolutions (4K, 2K, 1080p, 720p, 480p, 360p, MP3/M4A Audio).
 """
 import os
 import shutil
@@ -52,7 +52,7 @@ def get_video_info(video_url: str) -> Dict:
     """Fetch video metadata and available quality formats without downloading.
     
     Returns:
-        dict with keys: title, thumbnail, duration, duration_str, channel, view_count, formats
+        dict with keys: title, thumbnail, duration, duration_str, channel, view_count, quality_options
     """
     ffmpeg_loc = _get_ffmpeg_path()
     ydl_opts = {
@@ -67,38 +67,19 @@ def get_video_info(video_url: str) -> Dict:
         info = ydl.extract_info(video_url, download=False)
         
     duration_sec = info.get("duration", 0) or 0
-    raw_formats = info.get("formats", [])
     
-    # Analyze available video resolutions
-    available_heights = set()
-    for f in raw_formats:
-        h = f.get("height")
-        vcodec = f.get("vcodec", "none")
-        if h and vcodec != "none":
-            available_heights.add(h)
-            
-    # Build curated list of quality choices
+    # Always present full suite of resolution & audio quality options
     quality_options = [
-        {"id": "original", "label": "⭐ Original / Best Quality (Max Resolution)", "height": 99999, "type": "video"}
+        {"id": "original", "label": "⭐ Original / Best Quality (Max Resolution)", "height": 99999, "type": "video"},
+        {"id": "2160p", "label": "🖥️ 4K Ultra HD (2160p)", "height": 2160, "type": "video"},
+        {"id": "1440p", "label": "🖥️ 2K Quad HD (1440p)", "height": 1440, "type": "video"},
+        {"id": "1080p", "label": "📺 1080p Full HD", "height": 1080, "type": "video"},
+        {"id": "720p",  "label": "📺 720p HD", "height": 720, "type": "video"},
+        {"id": "480p",  "label": "📱 480p SD", "height": 480, "type": "video"},
+        {"id": "360p",  "label": "📱 360p Low", "height": 360, "type": "video"},
+        {"id": "mp3",   "label": "🎵 Audio Only (MP3 320kbps)", "height": 0, "type": "audio"},
+        {"id": "m4a",   "label": "🎵 Audio Only (M4A Original)", "height": 0, "type": "audio"},
     ]
-    
-    standard_resolutions = [
-        (2160, "🖥️ 4K Ultra HD (2160p)"),
-        (1440, "🖥️ 2K Quad HD (1440p)"),
-        (1080, "📺 1080p Full HD"),
-        (720,  "📺 720p HD"),
-        (480,  "📱 480p SD"),
-        (360,  "📱 360p Low"),
-    ]
-    
-    for res_h, res_label in standard_resolutions:
-        # Include if available in video formats or if heights exist above it
-        if any(h >= res_h for h in available_heights):
-            quality_options.append({"id": f"{res_h}p", "label": res_label, "height": res_h, "type": "video"})
-
-    # Add audio choices
-    quality_options.append({"id": "mp3", "label": "🎵 Audio Only (MP3 320kbps)", "height": 0, "type": "audio"})
-    quality_options.append({"id": "m4a", "label": "🎵 Audio Only (M4A Original)", "height": 0, "type": "audio"})
 
     return {
         "id": info.get("id", ""),
@@ -123,7 +104,7 @@ def download_video(
     
     Args:
         video_url: YouTube URL
-        quality_id: 'original', '2160p', '1080p', '720p', '480p', '360p', 'mp3', 'm4a'
+        quality_id: 'original', '2160p', '1440p', '1080p', '720p', '480p', '360p', 'mp3', 'm4a'
         progress_callback: callback function receiving status dict
         out_dir: destination directory
     
@@ -134,32 +115,49 @@ def download_video(
     os.makedirs(out_dir, exist_ok=True)
     ffmpeg_loc = _get_ffmpeg_path()
     
-    # Progress hook wrapper
+    stream_state = {"current_file": "", "stream_count": 0}
+    
+    # Progress hook wrapper handling multi-stream video & audio progress
     def _progress_hook(d):
         if not progress_callback:
             return
         status = d.get("status")
         if status == "downloading":
+            fn = d.get("filename", "")
+            if fn and fn != stream_state["current_file"]:
+                if stream_state["current_file"]:
+                    stream_state["stream_count"] += 1
+                stream_state["current_file"] = fn
+            
             total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
             downloaded = d.get("downloaded_bytes", 0)
             speed = d.get("speed") or 0
             eta = d.get("eta") or 0
             percent = (downloaded / total * 100.0) if total > 0 else 0.0
             
+            if quality_id in ("mp3", "m4a"):
+                stream_label = "Downloading Audio"
+            elif stream_state["stream_count"] == 0:
+                stream_label = "Downloading Video Stream"
+            else:
+                stream_label = "Downloading Audio Stream"
+            
             progress_callback({
                 "status": "downloading",
                 "percent": min(100.0, max(0.0, percent)),
+                "stream_label": stream_label,
                 "downloaded_bytes": downloaded,
                 "total_bytes": total,
                 "speed_str": f"{format_bytes(speed)}/s" if speed else "",
                 "eta_str": f"{eta}s" if eta else "",
-                "filename": os.path.basename(d.get("filename", "")),
+                "filename": os.path.basename(fn),
             })
         elif status == "finished":
             progress_callback({
                 "status": "processing",
                 "percent": 100.0,
-                "message": "Processing & merging video/audio streams with FFmpeg...",
+                "stream_label": "Merging with FFmpeg",
+                "message": "Processing & merging streams with FFmpeg...",
             })
 
     # Select yt-dlp format string & postprocessors based on quality_id
