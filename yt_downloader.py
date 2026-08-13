@@ -32,7 +32,6 @@ def sanitize_filename(filename: str) -> str:
     """Sanitize filename to prevent filesystem errors across OSes."""
     if not filename:
         return "download"
-    # Remove invalid characters: / \ : * ? " < > |
     clean = re.sub(r'[\\/*?:"<>|]', "", filename)
     clean = clean.strip().strip(".")
     return clean or "download"
@@ -65,7 +64,6 @@ def estimate_file_size(height: int, duration_sec: float) -> str:
     if not duration_sec or duration_sec <= 0:
         return "Est. ~"
     
-    # Approx bitrates in Mbps
     bitrate_mbps = {
         2160: 25.0,  # 4K
         1440: 12.0,  # 2K
@@ -85,14 +83,14 @@ def friendly_error_message(e: Exception) -> str:
     """Translate technical raw exception into user-friendly error string."""
     msg = str(e)
     if "Private video" in msg or "is private" in msg:
-        return "🔒 Media Unavailable: This video is private or restricted by the creator."
-    if "Video unavailable" in msg or "has been removed" in msg:
-        return "⚠️ Media Unavailable: This video has been removed or is unavailable in your region."
+        return "Media Unavailable: This video is private or restricted by the creator."
+    if "Video unavailable" in msg or "has been removed" in msg or "Not Found" in msg:
+        return "Media Unavailable: Content has been removed, is private, or URL is invalid."
     if "HTTP Error 429" in msg or "Too Many Requests" in msg:
-        return "⌛ Rate Limited: YouTube is temporarily limiting requests. Please wait a moment and try again."
+        return "Rate Limited: YouTube is temporarily limiting requests. Please wait a moment and try again."
     if "IncompleteRead" in msg or "Connection reset" in msg or "timed out" in msg:
-        return "🌐 Connection Problem: Check your internet connection and try again."
-    return f"❌ Download Error: {msg}"
+        return "Connection Problem: Check your internet connection and try again."
+    return f"Download Error: {msg}"
 
 
 def get_video_info(video_url: str) -> Dict:
@@ -101,6 +99,9 @@ def get_video_info(video_url: str) -> Dict:
     Returns:
         dict with metadata & quality_options list
     """
+    if not video_url or not video_url.strip():
+        raise ValueError("Please enter a valid YouTube video URL.")
+        
     ffmpeg_loc = _get_ffmpeg_path()
     ydl_opts = {
         "quiet": True,
@@ -112,7 +113,7 @@ def get_video_info(video_url: str) -> Dict:
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
+            info = ydl.extract_info(video_url.strip(), download=False)
     except Exception as e:
         raise RuntimeError(friendly_error_message(e)) from e
         
@@ -123,7 +124,6 @@ def get_video_info(video_url: str) -> Dict:
     else:
         date_str = "N/A"
         
-    # Quality Choices with File Size Estimations
     quality_options = [
         {
             "id": "original",
@@ -208,17 +208,41 @@ def get_video_info(video_url: str) -> Dict:
         "channel": info.get("uploader") or info.get("channel") or "Unknown Channel",
         "view_count": info.get("view_count", 0),
         "upload_date": date_str,
-        "url": video_url,
+        "url": video_url.strip(),
         "quality_options": quality_options,
     }
 
 
-def get_playlist_info(playlist_url: str) -> Dict:
-    """Fetch videos inside a playlist or batch URL list.
+def get_playlist_info(playlist_input: str) -> Dict:
+    """Fetch videos inside a playlist or multi-line URLs.
     
     Returns:
         dict: { 'title': str, 'video_count': int, 'videos': list }
     """
+    if not playlist_input or not playlist_input.strip():
+        raise ValueError("Please enter a playlist or video URLs.")
+        
+    lines = [line.strip() for line in playlist_input.strip().splitlines() if line.strip()]
+    
+    # If multiple URLs pasted
+    if len(lines) > 1:
+        videos = []
+        for idx, u in enumerate(lines, 1):
+            videos.append({
+                "idx": idx,
+                "id": f"vid_{idx}",
+                "title": f"Video Link #{idx}",
+                "url": u,
+                "duration_str": "--:--",
+                "channel": "YouTube",
+            })
+        return {
+            "title": "Batch Video List",
+            "video_count": len(videos),
+            "videos": videos,
+        }
+
+    # Otherwise parse YouTube playlist
     ffmpeg_loc = _get_ffmpeg_path()
     ydl_opts = {
         "quiet": True,
@@ -230,11 +254,11 @@ def get_playlist_info(playlist_url: str) -> Dict:
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(playlist_url, download=False)
+            info = ydl.extract_info(playlist_input.strip(), download=False)
     except Exception as e:
         raise RuntimeError(friendly_error_message(e)) from e
 
-    entries = info.get("entries", [])
+    entries = info.get("entries", []) if isinstance(info, dict) else []
     videos = []
     for idx, entry in enumerate(entries, 1):
         if not entry:
@@ -250,7 +274,7 @@ def get_playlist_info(playlist_url: str) -> Dict:
         })
 
     return {
-        "title": info.get("title", "YouTube Playlist"),
+        "title": info.get("title", "YouTube Playlist") if isinstance(info, dict) else "Playlist",
         "video_count": len(videos),
         "videos": videos,
     }
@@ -263,7 +287,7 @@ def download_video(
     progress_callback: Optional[Callable[[Dict], None]] = None,
     out_dir: Optional[str] = None,
 ) -> Dict:
-    """Download video with custom quality & filename template.
+    """Download video with custom quality choice & filename template.
     
     Returns:
         dict: { 'file_path': str, 'filename': str, 'file_size': int, 'file_size_str': str, 'title': str }
@@ -313,7 +337,7 @@ def download_video(
                 "status": "processing",
                 "percent": 100.0,
                 "stream_label": "Merging with FFmpeg",
-                "message": "Processing & merging video/audio streams with FFmpeg...",
+                "message": "Processing & merging streams with FFmpeg...",
             })
 
     # Output template formatting
