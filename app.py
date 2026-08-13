@@ -189,7 +189,7 @@ if st.session_state.video_info:
     
     with pcol1:
         if info.get("thumbnail"):
-            st.image(info["thumbnail"], use_column_width=True)
+            st.image(info["thumbnail"], use_container_width=True)
             
     with pcol2:
         st.markdown(f"### {info['title']}")
@@ -275,7 +275,7 @@ if st.session_state.download_result:
 st.markdown("---")
 st.markdown(
     "<div style='text-align: center; color: #64748b; font-size: 0.85rem;'>"
-    "Maintained by <a href='https://github.com/imomair1' style='color: #818cf8;'>@imomair1</a> • 100% Free & Open Source"
+    "Maintained by <a href='https://github.com/imomair1' style='color: #818cf8;'>@imomair1</a> • Private Application"
     "</div>",
     unsafe_allow_html=True,
 )
