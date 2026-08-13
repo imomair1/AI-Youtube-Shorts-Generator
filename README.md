@@ -1,11 +1,10 @@
 # ⚡ YouTube Video Downloader (Streamlit Web App)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-brightgreen.svg)](https://www.python.org/)
 [![Streamlit](https://img.shields.io/badge/Web%20UI-Streamlit-ff4b4b.svg)](https://streamlit.io)
 [![yt-dlp](https://img.shields.io/badge/Engine-yt--dlp-red.svg)](https://github.com/yt-dlp/yt-dlp)
 
-**A 100% Free, Open-Source & Unlimited YouTube Video Downloader built with Streamlit.**
+**A Private, Premium YouTube Video Downloader Web Application built with Streamlit.**
 
 Maintained by **[@imomair1](https://github.com/imomair1)**.
 
@@ -26,11 +25,11 @@ Paste any long-form YouTube video URL and download it in **Original / Best Quali
   - 🎵 **Audio Only (MP3 320kbps / M4A)**
 - 🎨 **Modern Streamlit Interface (`app.py`)**: Sleek dark mode UI with interactive video info preview (thumbnail, title, duration, views).
 - 💾 **Direct In-Browser File Delivery**: Click to download the file directly to your computer.
-- 🟢 **100% Free & Unlimited**: Runs locally with `yt-dlp` and `FFmpeg`.
+- 🔒 **Private & Secure**: Private repository and self-hostable.
 
 ---
 
-## 🛠️ Quick Start
+## 🛠️ Quick Start (Local Setup)
 
 ### 1. Prerequisites
 - **Python**: 3.10 or higher
@@ -39,7 +38,7 @@ Paste any long-form YouTube video URL and download it in **Original / Best Quali
 ### 2. Installation
 
 ```bash
-# Clone repository
+# Clone private repository
 git clone https://github.com/imomair1/AI-Youtube-Shorts-Generator.git
 cd AI-Youtube-Shorts-Generator
 
@@ -76,8 +75,6 @@ AI-Youtube-Shorts-Generator/
 
 ---
 
-## 🤝 Author & License
+## 🔒 Copyright & Proprietary Rights
 
-Developed and maintained by **[@imomair1](https://github.com/imomair1)**.
-
-Licensed under the [MIT License](LICENSE).
+Copyright © 2026 **[@imomair1](https://github.com/imomair1)**. All rights reserved. Private and proprietary software.
