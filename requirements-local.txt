@@ -5,6 +5,7 @@ yt-dlp>=2024.1.1
 faster-whisper>=1.0.0
 opencv-python>=4.8.0
 ollama>=0.3.0
+streamlit>=1.30.0
 
 # Optional: only needed if you set LLM_PROVIDER=openai or gemini
 # openai>=1.0.0
