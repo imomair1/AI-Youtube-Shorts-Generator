@@ -15,6 +15,12 @@ from pathlib import Path
 from typing import Dict, List, Optional
 import yt_dlp
 
+# Auto-inject venv\Scripts to system PATH so FFmpeg is always found
+_CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+_VENV_SCRIPTS = os.path.join(_CURRENT_DIR, "venv", "Scripts")
+if os.path.exists(_VENV_SCRIPTS) and _VENV_SCRIPTS not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = _VENV_SCRIPTS + os.pathsep + os.environ.get("PATH", "")
+
 from shorts_generator.config import LOCAL_OUTPUT_DIR
 from yt_downloader import _get_ffmpeg_path, format_bytes, sanitize_filename
 
@@ -148,7 +154,7 @@ class FuseGrabApi:
             return {"success": False, "error": "Please enter a valid YouTube URL."}
 
         raw_urls = [u.strip() for u in url_text.strip().splitlines() if u.strip()]
-        ffmpeg_loc = _get_ffmpeg_path()
+        ffmpeg_loc = _get_ffmpeg_path() or _VENV_SCRIPTS
         ydl_opts = {
             "quiet": True,
             "no_warnings": True,
@@ -185,6 +191,7 @@ class FuseGrabApi:
                             "playlist_name": playlist_title,
                             "date": datetime.now().strftime("%Y/%m/%d"),
                             "selected": True,
+                            "error_msg": "",
                         }
                         added_items.append(item)
                 else:
@@ -204,6 +211,7 @@ class FuseGrabApi:
                         "playlist_name": "",
                         "date": datetime.now().strftime("%Y/%m/%d"),
                         "selected": True,
+                        "error_msg": "",
                     }
                     added_items.append(item)
             except Exception as e:
@@ -222,11 +230,10 @@ class FuseGrabApi:
                     "playlist_name": "",
                     "date": datetime.now().strftime("%Y/%m/%d"),
                     "selected": True,
+                    "error_msg": str(e),
                 }
                 added_items.append(item)
 
-        # Prepend added items so item 1 remains at the bottom of array (chronological order)
-        # Note: We reverse added items so item 1 is at the top of added block
         added_items.reverse()
         self.downloads = added_items + self.downloads
         self.save_history()
@@ -242,10 +249,6 @@ class FuseGrabApi:
         t = threading.Thread(target=self._download_worker, args=(item,), daemon=True)
         self.active_threads[item_id] = t
         t.start()
-
-    def start_all_queued(self):
-        """Ensure queue manager is active (queue manager picks next item automatically)."""
-        pass
 
     def pause_download(self, item_id: str):
         """Flag download thread to pause."""
@@ -263,7 +266,6 @@ class FuseGrabApi:
                 if item["status"] == "Downloading":
                     self.pause_download(item["id"])
         else:
-            # Resume: reset Paused items to Queued so queue manager picks them 1-by-1
             for item in self.downloads:
                 if item["status"] in ("Paused", "Failed") and item.get("selected", True):
                     item["status"] = "Queued"
@@ -292,10 +294,11 @@ class FuseGrabApi:
         item_id = item["id"]
         item["status"] = "Downloading"
         item["progress"] = 0
+        item["error_msg"] = ""
         
         out_dir = self.settings.get("download_dir", os.path.join(os.path.expanduser("~"), "Downloads"))
         os.makedirs(out_dir, exist_ok=True)
-        ffmpeg_loc = _get_ffmpeg_path()
+        ffmpeg_loc = _get_ffmpeg_path() or _VENV_SCRIPTS
 
         def _progress_hook(d):
             if self.pause_flags.get(item_id, False):
@@ -330,6 +333,7 @@ class FuseGrabApi:
         else:
             try:
                 h = int(quality_id.replace("p", ""))
+                # Fallback to single format 'best' if merged video+audio fails
                 ydl_format = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
             except ValueError:
                 ydl_format = "bestvideo+bestaudio/best"
@@ -338,7 +342,8 @@ class FuseGrabApi:
         if self.settings.get("download_thumbnails", False):
             postprocessors.append({"key": "FFmpegMetadata"})
 
-        outtmpl = os.path.join(out_dir, "%(title)s [%(height)sp].%(ext)s") if quality_id != "mp3" else os.path.join(out_dir, "%(title)s.%(ext)s")
+        # Clean output template string without height key error
+        outtmpl = os.path.join(out_dir, "%(title)s.%(ext)s")
 
         ydl_opts = {
             "format": ydl_format,
@@ -379,6 +384,7 @@ class FuseGrabApi:
                 item["status"] = "Paused"
             else:
                 item["status"] = "Failed"
+                item["error_msg"] = str(e)
             self.save_history()
 
     def open_file_folder(self, item_id: str):
