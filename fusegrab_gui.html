@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FuseGrab</title>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --surface-color: #ffffff;
+      --border-color: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --primary-black: #18181b;
+      --primary-black-hover: #27272a;
+      --accent-red: #ef4444;
+      --accent-green: #10b981;
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: var(--font-family);
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header Bar */
+    header {
+      background-color: var(--surface-color);
+      border-bottom: 1px solid var(--border-color);
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      -webkit-app-region: drag;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--text-main);
+    }
+
+    .brand-logo {
+      width: 20px;
+      height: 20px;
+      background-color: var(--text-main);
+      mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E") no-repeat center / contain;
+      -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5'/%3E%3C/svg%3E") no-repeat center / contain;
+    }
+
+    .search-box {
+      width: 320px;
+      position: relative;
+      -webkit-app-region: no-drag;
+    }
+
+    .search-box input {
+      width: 100%;
+      height: 32px;
+      background-color: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 0 16px 0 36px;
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+    }
+
+    .search-box input:focus {
+      border-color: var(--text-muted);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 8px;
+      width: 16px;
+      height: 16px;
+      opacity: 0.5;
+    }
+
+    /* Action Toolbar */
+    .toolbar {
+      background-color: var(--surface-color);
+      border-bottom: 1px solid var(--border-color);
+      height: 52px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 16px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-black);
+      color: #ffffff;
+      font-weight: 600;
+      border-radius: 8px;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--primary-black-hover);
+    }
+
+    .btn-ghost {
+      background-color: transparent;
+      color: var(--text-main);
+    }
+
+    .btn-ghost:hover {
+      background-color: var(--bg-color);
+    }
+
+    .btn-danger {
+      background-color: transparent;
+      color: var(--accent-red);
+    }
+
+    .btn-danger:hover {
+      background-color: #fef2f2;
+    }
+
+    .toolbar-divider {
+      height: 20px;
+      width: 1px;
+      background-color: var(--border-color);
+    }
+
+    /* Main Container & Sidebar */
+    .app-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+
+    aside {
+      width: 220px;
+      background-color: var(--surface-color);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 16px 12px;
+    }
+
+    .sidebar-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 36px;
+      padding: 0 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .nav-item:hover {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background-color: #f1f5f9;
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .badge {
+      background-color: #e2e8f0;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 10px;
+    }
+
+    .sidebar-footer {
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .version-tag {
+      font-size: 12px;
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .yt-login {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+      cursor: pointer;
+    }
+
+    /* Content Area */
+    main {
+      flex: 1;
+      background-color: var(--surface-color);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Data Table */
+    .table-container {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background-color: var(--surface-color);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-light);
+      z-index: 10;
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid #f1f5f9;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    tr:hover {
+      background-color: #f8fafc;
+    }
+
+    .col-cb {
+      width: 40px;
+      text-align: center;
+    }
+
+    input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--primary-black);
+      cursor: pointer;
+    }
+
+    .item-name-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .media-icon {
+      width: 28px;
+      height: 28px;
+      background-color: #f1f5f9;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .item-title {
+      font-weight: 600;
+      color: var(--text-main);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 440px;
+    }
+
+    .item-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .quality-select {
+      height: 28px;
+      background-color: #f1f5f9;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 0 8px;
+      font-size: 12px;
+      color: var(--text-main);
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Progress & Status */
+    .status-cell {
+      width: 180px;
+    }
+
+    .progress-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .progress-track {
+      height: 6px;
+      background-color: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: var(--primary-black);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .status-pill {
+      display: inline-block;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-finished {
+      color: var(--accent-green);
+      font-weight: 600;
+    }
+
+    .status-failed {
+      color: var(--accent-red);
+      font-weight: 600;
+    }
+
+    .col-actions {
+      width: 40px;
+      text-align: center;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    /* Empty State */
+    .empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      color: var(--text-muted);
+    }
+
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      opacity: 0.3;
+    }
+
+    /* Bottom Status Footer */
+    footer {
+      background-color: var(--surface-color);
+      border-top: 1px solid var(--border-color);
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .footer-right {
+      display: flex;
+      gap: 16px;
+    }
+
+    /* Modal Backdrop */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-backdrop.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background-color: #ffffff;
+      border-radius: 16px;
+      width: 460px;
+      padding: 24px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: relative;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .modal-close {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      width: 28px;
+      height: 28px;
+      border-radius: 14px;
+      background-color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .input-group {
+      display: flex;
+      align-items: center;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 0 12px;
+      height: 42px;
+      background-color: #ffffff;
+    }
+
+    .input-group input {
+      border: none;
+      outline: none;
+      width: 100%;
+      font-size: 13px;
+      color: var(--text-main);
+    }
+
+    .select-input {
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      height: 42px;
+      padding: 0 12px;
+      font-size: 13px;
+      outline: none;
+      background-color: #ffffff;
+    }
+
+    .toggle-card {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .toggle-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e1;
+      transition: .2s;
+      border-radius: 12px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .2s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--primary-black);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    .btn-full {
+      width: 100%;
+      height: 44px;
+      font-size: 14px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo"></div>
+      <span>FuseGrab</span>
+    </div>
+    <div class="search-box">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+      </svg>
+      <input type="text" id="searchInput" placeholder="Search in the List" oninput="renderTable()">
+    </div>
+    <div style="width: 80px;"></div>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="openAddUrlModal()">+ Add URL</button>
+    <button class="btn btn-ghost" onclick="togglePauseAll()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+      <span id="pauseBtnLabel">Pause</span>
+    </button>
+    <button class="btn btn-danger" onclick="deleteSelected()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      Delete
+    </button>
+    <div class="toolbar-divider"></div>
+    <button class="btn btn-ghost" onclick="openSettingsModal()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Options
+    </button>
+  </div>
+
+  <!-- Main Body -->
+  <div class="app-body">
+    <!-- Sidebar -->
+    <aside>
+      <div class="sidebar-menu">
+        <div class="nav-item active" onclick="setCategory('all')" id="nav-all">
+          <div class="nav-left">
+            <span>📁</span> All Downloads
+          </div>
+          <span class="badge" id="badge-all">0</span>
+        </div>
+        <div class="nav-item" onclick="setCategory('individual')" id="nav-individual">
+          <div class="nav-left">
+            <span>📹</span> Individual Videos
+          </div>
+          <span class="badge" id="badge-individual">0</span>
+        </div>
+        <div class="nav-item" onclick="setCategory('playlists')" id="nav-playlists">
+          <div class="nav-left">
+            <span>📂</span> Channels & Playlists
+          </div>
+          <span class="badge" id="badge-playlists">0</span>
+        </div>
+        <div id="playlistSubfolders" style="margin-top: 6px;"></div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="version-tag">
+          <span>v1.3.0</span>
+          <span style="cursor:pointer;" onclick="refreshData()">🔄</span>
+        </div>
+        <div class="yt-login">
+          <span>👤</span> Sign in to YouTube
+        </div>
+      </div>
+    </aside>
+
+    <!-- Content Area -->
+    <main>
+      <div class="table-container" id="tableContainer">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-cb"><input type="checkbox" id="selectAllCb" onchange="toggleSelectAll(this)"></th>
+              <th>Name</th>
+              <th>Quality</th>
+              <th style="width: 180px;">Status</th>
+              <th>Last Modification</th>
+              <th class="col-actions"></th>
+            </tr>
+          </thead>
+          <tbody id="downloadsTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="emptyState" style="display: none;">
+        <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+        </svg>
+        <span>No downloads in this list.</span>
+        <button class="btn btn-ghost" style="border: 1px solid var(--border-color);" onclick="openAddUrlModal()">+ Add YouTube Link</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Bottom Footer -->
+  <footer>
+    <div>
+      Total Items: <b id="footTotal">0</b> &nbsp;•&nbsp; Selected: <b id="footSelected">0</b>
+    </div>
+    <div class="footer-right">
+      <span>In Progress: <b id="footProgress">0</b></span>
+      <span>Finished: <b id="footFinished">0</b></span>
+      <span>Paused: <b id="footPaused">0</b></span>
+    </div>
+  </footer>
+
+  <!-- Modal 1: Add URL -->
+  <div class="modal-backdrop" id="addUrlModal">
+    <div class="modal-card">
+      <div class="modal-title">Add YouTube Link</div>
+      <div class="modal-close" onclick="closeAddUrlModal()">✕</div>
+      <div class="form-group">
+        <label class="form-label">Paste YouTube Video or Playlist URL(s):</label>
+        <textarea id="urlTextArea" style="height: 100px; padding: 10px; border: 1px solid var(--border-color); border-radius: 10px; outline: none; font-size: 13px; resize: none;" placeholder="https://www.youtube.com/watch?v=..."></textarea>
+      </div>
+      <button class="btn btn-primary btn-full" onclick="submitAddUrl()">+ Add & Download</button>
+    </div>
+  </div>
+
+  <!-- Modal 2: Download Settings -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal-card">
+      <div class="modal-title">Download Settings</div>
+      <div class="modal-close" onclick="closeSettingsModal()">✕</div>
+      
+      <div class="form-group">
+        <label class="form-label">Download Location</label>
+        <div class="input-group">
+          <input type="text" id="settingDir">
+          <span style="cursor:pointer;" onclick="chooseFolder()">📁</span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Default Video Quality / Format</label>
+        <select class="select-input" id="settingQuality">
+          <option value="1080p">1080p</option>
+          <option value="2160p">4K (2160p)</option>
+          <option value="1440p">2K (1440p)</option>
+          <option value="720p">720p</option>
+          <option value="480p">480p</option>
+          <option value="mp3">Audio Only (MP3)</option>
+        </select>
+      </div>
+
+      <div class="toggle-card">
+        <div>
+          <div class="form-label">Download thumbnails with videos</div>
+          <div class="toggle-sub">Saves the highest-quality thumbnail (.jpg) alongside each video.</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="settingThumb">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <button class="btn btn-primary btn-full" onclick="saveSettings()">Done</button>
+    </div>
+  </div>
+
+  <script>
+    let downloads = [];
+    let currentCategory = 'all';
+    let pollInterval = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      refreshData();
+      loadSettingsUI();
+      pollInterval = setInterval(refreshData, 1000);
+    });
+
+    function refreshData() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.get_downloads().then(data => {
+          downloads = data || [];
+          renderTable();
+          updateBadges();
+        });
+      }
+    }
+
+    function loadSettingsUI() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.get_settings().then(s => {
+          document.getElementById('settingDir').value = s.download_dir || '';
+          document.getElementById('settingQuality').value = s.default_quality || '1080p';
+          document.getElementById('settingThumb').checked = !!s.download_thumbnails;
+        });
+      }
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      document.getElementById('nav-' + cat)?.classList.add('active');
+      renderTable();
+    }
+
+    function renderTable() {
+      const search = document.getElementById('searchInput').value.toLowerCase();
+      const tbody = document.getElementById('downloadsTableBody');
+      tbody.innerHTML = '';
+
+      let filtered = downloads.filter(d => {
+        if (search && !d.title.toLowerCase().includes(search) && !d.channel.toLowerCase().includes(search)) {
+          return false;
+        }
+        if (currentCategory === 'individual') return !d.playlist_name;
+        if (currentCategory === 'playlists') return !!d.playlist_name;
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        document.getElementById('tableContainer').style.display = 'none';
+        document.getElementById('emptyState').style.display = 'flex';
+      } else {
+        document.getElementById('tableContainer').style.display = 'block';
+        document.getElementById('emptyState').style.display = 'none';
+
+        filtered.forEach(item => {
+          const tr = document.createElement('tr');
+
+          // Progress & status rendering
+          let statusHtml = `<span class="status-pill">${item.status}</span>`;
+          if (item.status === 'Downloading') {
+            statusHtml = `
+              <div class="progress-box">
+                <div class="progress-header">
+                  <span>${Math.round(item.progress)}%</span>
+                  <span>${item.speed || ''}</span>
+                </div>
+                <div class="progress-track">
+                  <div class="progress-fill" style="width: ${item.progress}%"></div>
+                </div>
+              </div>`;
+          } else if (item.status === 'Finished') {
+            statusHtml = `<span class="status-pill status-finished">Finished</span>`;
+          } else if (item.status === 'Failed') {
+            statusHtml = `<span class="status-pill status-failed">Failed</span>`;
+          }
+
+          tr.innerHTML = `
+            <td class="col-cb">
+              <input type="checkbox" ${item.selected ? 'checked' : ''} onchange="toggleItemSelect('${item.id}', this.checked)">
+            </td>
+            <td>
+              <div class="item-name-cell">
+                <div class="media-icon">📹</div>
+                <div>
+                  <div class="item-title" title="${item.title}">${item.title}</div>
+                  <div class="item-sub">${item.channel}</div>
+                </div>
+              </div>
+            </td>
+            <td>
+              <select class="quality-select" onchange="changeQuality('${item.id}', this.value)">
+                <option value="1080p" ${item.quality === '1080p' ? 'selected' : ''}>1080p</option>
+                <option value="2160p" ${item.quality === '2160p' ? 'selected' : ''}>4K (2160p)</option>
+                <option value="1440p" ${item.quality === '1440p' ? 'selected' : ''}>2K (1440p)</option>
+                <option value="720p" ${item.quality === '720p' ? 'selected' : ''}>720p</option>
+                <option value="480p" ${item.quality === '480p' ? 'selected' : ''}>480p</option>
+                <option value="mp3" ${item.quality === 'mp3' ? 'selected' : ''}>MP3 Audio</option>
+              </select>
+            </td>
+            <td class="status-cell">${statusHtml}</td>
+            <td>${item.date || '2026/08/15'}</td>
+            <td class="col-actions" onclick="openFolder('${item.id}')">...</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      updateFooter();
+    }
+
+    function updateBadges() {
+      const allCount = downloads.length;
+      const indCount = downloads.filter(d => !d.playlist_name).length;
+      const playCount = downloads.filter(d => !!d.playlist_name).length;
+
+      document.getElementById('badge-all').innerText = allCount;
+      document.getElementById('badge-individual').innerText = indCount;
+      document.getElementById('badge-playlists').innerText = playCount;
+    }
+
+    function updateFooter() {
+      const total = downloads.length;
+      const selected = downloads.filter(d => d.selected).length;
+      const inProgress = downloads.filter(d => d.status === 'Downloading').length;
+      const finished = downloads.filter(d => d.status === 'Finished').length;
+      const paused = downloads.filter(d => d.status === 'Paused').length;
+
+      document.getElementById('footTotal').innerText = total;
+      document.getElementById('footSelected').innerText = selected;
+      document.getElementById('footProgress').innerText = inProgress;
+      document.getElementById('footFinished').innerText = finished;
+      document.getElementById('footPaused').innerText = paused;
+    }
+
+    function toggleSelectAll(masterCb) {
+      downloads.forEach(d => d.selected = masterCb.checked);
+      renderTable();
+    }
+
+    function toggleItemSelect(id, checked) {
+      const item = downloads.find(d => d.id === id);
+      if (item) item.selected = checked;
+      renderTable();
+    }
+
+    function openAddUrlModal() {
+      document.getElementById('addUrlModal').classList.add('show');
+    }
+
+    function closeAddUrlModal() {
+      document.getElementById('addUrlModal').classList.remove('show');
+    }
+
+    function submitAddUrl() {
+      const val = document.getElementById('urlTextArea').value;
+      if (val && window.pywebview && window.pywebview.api) {
+        window.pywebview.api.parse_urls(val).then(res => {
+          closeAddUrlModal();
+          document.getElementById('urlTextArea').value = '';
+          refreshData();
+          // Start download for newly added
+          window.pywebview.api.start_all_queued();
+        });
+      }
+    }
+
+    function deleteSelected() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.delete_selected().then(() => refreshData());
+      }
+    }
+
+    function togglePauseAll() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.toggle_pause_all();
+        refreshData();
+      }
+    }
+
+    function openSettingsModal() {
+      document.getElementById('settingsModal').classList.add('show');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settingsModal').classList.remove('show');
+    }
+
+    function chooseFolder() {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.select_folder().then(folder => {
+          if (folder) document.getElementById('settingDir').value = folder;
+        });
+      }
+    }
+
+    function saveSettings() {
+      const s = {
+        download_dir: document.getElementById('settingDir').value,
+        default_quality: document.getElementById('settingQuality').value,
+        download_thumbnails: document.getElementById('settingThumb').checked,
+      };
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.update_settings(JSON.stringify(s)).then(() => {
+          closeSettingsModal();
+        });
+      }
+    }
+
+    function changeQuality(id, quality) {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.update_item_quality(id, quality);
+      }
+    }
+
+    function openFolder(id) {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.open_file_folder(id);
+      }
+    }
+  </script>
+</body>
+</html>
