@@ -25,8 +25,8 @@ from shorts_generator.config import LOCAL_OUTPUT_DIR
 from yt_downloader import _get_ffmpeg_path, format_bytes, sanitize_filename
 
 
-SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".fusegrab_settings.json")
-HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".fusegrab_history.json")
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".vidora_settings.json")
+HISTORY_FILE = os.path.join(os.path.expanduser("~"), ".vidora_history.json")
 
 
 def load_settings() -> Dict:

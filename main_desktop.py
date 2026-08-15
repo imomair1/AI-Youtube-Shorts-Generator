@@ -14,7 +14,7 @@ def main():
     gui_file = os.path.join(os.path.dirname(__file__), "fusegrab_gui.html")
     
     window = webview.create_window(
-        title="FuseGrab",
+        title="Vidora",
         url=gui_file,
         js_api=api,
         width=1280,
