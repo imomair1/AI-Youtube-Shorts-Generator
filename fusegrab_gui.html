@@ -845,7 +845,8 @@
           } else if (item.status === 'Finished') {
             statusHtml = `<span class="status-pill status-finished">Finished</span>`;
           } else if (item.status === 'Failed') {
-            statusHtml = `<span class="status-pill status-failed">Failed</span>`;
+            const errTip = item.error_msg ? `title="${item.error_msg.replace(/"/g, "'")}"` : 'title="Click to Retry"';
+            statusHtml = `<span class="status-pill status-failed" style="cursor:pointer;" ${errTip} onclick="retryItem('${item.id}')">Failed 🔄</span>`;
           }
 
           tr.innerHTML = `
@@ -991,6 +992,13 @@
     function openFolder(id) {
       if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.open_file_folder(id);
+      }
+    }
+
+    function retryItem(id) {
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.retry_item(id);
+        refreshData();
       }
     }
   </script>

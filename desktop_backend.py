@@ -70,15 +70,16 @@ class FuseGrabApi:
         self.queue_thread.start()
 
     def load_history(self):
-        """Load history list from disk."""
+        """Load history list from disk and reset any interrupted/failed items to Queued."""
         if os.path.exists(HISTORY_FILE):
             try:
                 with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                     self.downloads = json.load(f)
-                    # Reset any leftover 'Downloading' items to 'Queued' on startup
                     for item in self.downloads:
-                        if item.get("status") in ("Downloading", "Processing"):
+                        # Reset Downloading, Processing, or Failed items to Queued on startup so they retry cleanly
+                        if item.get("status") in ("Downloading", "Processing", "Failed"):
                             item["status"] = "Queued"
+                            item["progress"] = 0
             except Exception:
                 self.downloads = []
 
@@ -91,20 +92,19 @@ class FuseGrabApi:
             print("Failed to save history:", e)
 
     def _queue_manager_loop(self):
-        """Sequential queue manager: processes items 1-by-1 in order."""
+        """Sequential queue manager: enforces strict 1-by-1 download queue."""
         while self.is_running:
             time.sleep(1.0)
             
-            # Count currently downloading/processing items
+            # Count currently active downloading items
             active_count = sum(1 for d in self.downloads if d.get("status") in ("Downloading", "Processing"))
             
-            # Max concurrency (default: 1 for sequential queue)
             max_conc = int(self.settings.get("concurrency", 1))
             if max_conc < 1:
                 max_conc = 1
                 
             if active_count < max_conc:
-                # Pick the first queued item in chronological order (oldest first)
+                # Find the first queued item in chronological order (oldest first)
                 queued_item = None
                 for item in reversed(self.downloads):
                     if item.get("status") == "Queued" and item.get("selected", True):
@@ -222,7 +222,7 @@ class FuseGrabApi:
                     "channel": "Error",
                     "url": target_url,
                     "quality": self.settings.get("default_quality", "1080p"),
-                    "status": "Failed",
+                    "status": "Queued",
                     "progress": 0,
                     "speed": "",
                     "eta": "",
@@ -240,7 +240,15 @@ class FuseGrabApi:
         return {"success": True, "count": len(added_items), "items": added_items}
 
     def start_download(self, item_id: str):
-        """Start downloading a specific item in background thread."""
+        """Start downloading a specific item in background thread if concurrency limit allows."""
+        active_count = sum(1 for d in self.downloads if d.get("status") in ("Downloading", "Processing"))
+        max_conc = int(self.settings.get("concurrency", 1))
+        if max_conc < 1:
+            max_conc = 1
+
+        if active_count >= max_conc:
+            return  # Strict queue guard: Queue manager will trigger when active slot frees up
+
         item = next((x for x in self.downloads if x["id"] == item_id), None)
         if not item or item["status"] in ("Downloading", "Processing"):
             return
@@ -249,6 +257,19 @@ class FuseGrabApi:
         t = threading.Thread(target=self._download_worker, args=(item,), daemon=True)
         self.active_threads[item_id] = t
         t.start()
+
+    def start_all_queued(self):
+        """Ensure queue manager is active."""
+        pass
+
+    def retry_item(self, item_id: str):
+        """Re-queue a failed or paused item for download."""
+        item = next((x for x in self.downloads if x["id"] == item_id), None)
+        if item:
+            item["status"] = "Queued"
+            item["progress"] = 0
+            item["error_msg"] = ""
+            self.save_history()
 
     def pause_download(self, item_id: str):
         """Flag download thread to pause."""
@@ -269,6 +290,7 @@ class FuseGrabApi:
             for item in self.downloads:
                 if item["status"] in ("Paused", "Failed") and item.get("selected", True):
                     item["status"] = "Queued"
+                    item["progress"] = 0
             self.save_history()
 
     def delete_selected(self):
@@ -333,7 +355,6 @@ class FuseGrabApi:
         else:
             try:
                 h = int(quality_id.replace("p", ""))
-                # Fallback to single format 'best' if merged video+audio fails
                 ydl_format = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
             except ValueError:
                 ydl_format = "bestvideo+bestaudio/best"
@@ -342,7 +363,6 @@ class FuseGrabApi:
         if self.settings.get("download_thumbnails", False):
             postprocessors.append({"key": "FFmpegMetadata"})
 
-        # Clean output template string without height key error
         outtmpl = os.path.join(out_dir, "%(title)s.%(ext)s")
 
         ydl_opts = {
