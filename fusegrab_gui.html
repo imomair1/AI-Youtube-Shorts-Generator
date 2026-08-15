@@ -707,6 +707,7 @@
     </div>
     <div class="footer-right">
       <span>In Progress: <b id="footProgress">0</b></span>
+      <span>Queued: <b id="footQueued">0</b></span>
       <span>Finished: <b id="footFinished">0</b></span>
       <span>Paused: <b id="footPaused">0</b></span>
     </div>
@@ -894,13 +895,15 @@
     function updateFooter() {
       const total = downloads.length;
       const selected = downloads.filter(d => d.selected).length;
-      const inProgress = downloads.filter(d => d.status === 'Downloading').length;
+      const inProgress = downloads.filter(d => d.status === 'Downloading' || d.status === 'Processing').length;
+      const queued = downloads.filter(d => d.status === 'Queued').length;
       const finished = downloads.filter(d => d.status === 'Finished').length;
       const paused = downloads.filter(d => d.status === 'Paused').length;
 
       document.getElementById('footTotal').innerText = total;
       document.getElementById('footSelected').innerText = selected;
       document.getElementById('footProgress').innerText = inProgress;
+      document.getElementById('footQueued').innerText = queued;
       document.getElementById('footFinished').innerText = finished;
       document.getElementById('footPaused').innerText = paused;
     }
