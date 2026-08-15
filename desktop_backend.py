@@ -76,7 +76,6 @@ class FuseGrabApi:
                 with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                     self.downloads = json.load(f)
                     for item in self.downloads:
-                        # Reset Downloading, Processing, or Failed items to Queued on startup so they retry cleanly
                         if item.get("status") in ("Downloading", "Processing", "Failed"):
                             item["status"] = "Queued"
                             item["progress"] = 0
@@ -92,7 +91,7 @@ class FuseGrabApi:
             print("Failed to save history:", e)
 
     def _queue_manager_loop(self):
-        """Sequential queue manager: enforces strict 1-by-1 download queue."""
+        """Sequential queue manager: processes items 1-by-1 in order (top to bottom)."""
         while self.is_running:
             time.sleep(1.0)
             
@@ -104,9 +103,9 @@ class FuseGrabApi:
                 max_conc = 1
                 
             if active_count < max_conc:
-                # Find the first queued item in chronological order (oldest first)
+                # Pick the first queued item in array order (top to bottom as displayed in UI)
                 queued_item = None
-                for item in reversed(self.downloads):
+                for item in self.downloads:
                     if item.get("status") == "Queued" and item.get("selected", True):
                         queued_item = item
                         break
@@ -234,7 +233,7 @@ class FuseGrabApi:
                 }
                 added_items.append(item)
 
-        added_items.reverse()
+        # Place added items at top of list in sequential order (item 1 at top)
         self.downloads = added_items + self.downloads
         self.save_history()
         return {"success": True, "count": len(added_items), "items": added_items}
@@ -312,7 +311,7 @@ class FuseGrabApi:
             self.save_history()
 
     def _download_worker(self, item: Dict):
-        """Background thread executing yt-dlp download."""
+        """Background thread executing yt-dlp download with robust network retries and auto-resume."""
         item_id = item["id"]
         item["status"] = "Downloading"
         item["progress"] = 0
@@ -355,7 +354,8 @@ class FuseGrabApi:
         else:
             try:
                 h = int(quality_id.replace("p", ""))
-                ydl_format = f"bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
+                # Flexible format string with automatic fallback if height stream is restricted
+                ydl_format = f"bestvideo[height<={h}]+bestaudio/bestvideo[height<={h}]+bestaudio/best[height<={h}]/best"
             except ValueError:
                 ydl_format = "bestvideo+bestaudio/best"
             postprocessors = []
@@ -373,6 +373,10 @@ class FuseGrabApi:
             "quiet": True,
             "no_warnings": True,
             "writethumbnail": self.settings.get("download_thumbnails", False),
+            "retries": 10,                # Auto-retry network glitches 10 times
+            "fragment_retries": 10,       # Auto-retry video chunk fragments
+            "continuedl": True,           # Auto-resume partial .part downloads
+            "socket_timeout": 30,         # 30s socket timeout
         }
         if postprocessors:
             ydl_opts["postprocessors"] = postprocessors
